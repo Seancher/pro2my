@@ -1,12 +1,35 @@
-DEF VAR cDate AS CHAR INIT "2812017".
+/* --------------------------------------------------------------------
+   main_ptmsch.p
+   -------------------------------------------------------------------------- */
 
-/* MAIN Pro2MySQL*/
+/* -------------------------- Variables ------------------------------------- */
+DEF VAR cDatabaseStatDate AS CHARACTER.
+DEF VAR iTransType AS INTEGER.
 DEF VAR i AS INTEGER.
-DEF VAR lDatabaseName AS CHAR.
+DEF VAR cDatabaseName AS CHAR.
+DEFINE NEW SHARED STREAM MX.
 
+/* -------------------------- Constants ------------------------------------- */
+/* Progress to MySQL transition type */
+&GLOBAL-DEFINE KEEP_ORIG_DATABASE 1
+&GLOBAL-DEFINE EXCL_EMPTY_TABLES 2
+&GLOBAL-DEFINE EXCL_EMPTY_FIELDS 3
+
+/* -------------------------- Settings -------------------------------------- */
+ASSIGN
+   cDatabaseStatDate = "2812017"
+   iTransType = {&KEEP_ORIG_DATABASE}.
+
+/* -------------------------- Main start ------------------------------------ */
+OUTPUT STREAM MX TO VALUE("out/mysql_rbsall.sql").
+PUT STREAM MX UNFORMATTED "DROP DATABASE IF EXISTS rbsall;" SKIP.
+PUT STREAM MX UNFORMATTED "CREATE DATABASE rbsall;" SKIP.
+PUT STREAM MX UNFORMATTED "USE rbsall;" SKIP.
 DO i = 1 to NUM-DBS:
-   lDatabaseName = LDBNAME(i).
-   DISPLAY lDatabaseName LABEL "Database name: ".
-   RUN create_alias.p(lDatabaseName).
-   RUN ptmsch.p("ALL", lDatabaseName, cDate).
+   cDatabaseName = LDBNAME(i).
+   DISPLAY cDatabaseName LABEL "Database name: ".
+   RUN src/create_alias.p(cDatabaseName).
+   RUN src/ptmsch.p(iTransType, cDatabaseName, cDatabaseStatDate).
 END.
+
+/* -------------------------- End ------------------------------------------- */
