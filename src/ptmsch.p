@@ -10,12 +10,8 @@
 			     or SCH_'dbname'.SQL for all tables
 
    -------------------------------------------------------------------------- */
-/* -------------------------- Constants ------------------------------------- */
-/* Progress to MySQL transition type */
-   &GLOBAL-DEFINE KEEP_ORIG_DATABASE 1
-   &GLOBAL-DEFINE EXCL_EMPTY_TABLES 2
-   &GLOBAL-DEFINE EXCL_EMPTY_FIELDS 3
-   
+{src/const.i}
+  
 /* -------------------------- Parameters ------------------------------------ */
 DEF INPUT PARAMETER ipTransType AS INTEGER NO-UNDO.
 DEF INPUT PARAMETER icDBName    AS CHAR FORMAT "x(30)" NO-UNDO.
