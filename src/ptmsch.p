@@ -36,7 +36,7 @@ DEF VAR cFieldFormat       AS CHARACTER NO-UNDO.
 /* ---------------------------- MAIN ---------------------------------------- */
 
 /* Fetch lists: used tables, used table-fields */
-INPUT FROM VALUE("../rbs_db_analysis/out/usedfields_" + icDBName + "_" + ipDate + ".txt").
+INPUT FROM VALUE("../rbs_db_analysis/out/used_tablefields_" + icDBName + "_" + ipDate + ".txt").
 DO WHILE TRUE ON ENDKEY UNDO, LEAVE:
    IMPORT UNFORMATTED cTextString.
    lcUsedTables = lcUsedTables + ENTRY(1,cTextString,".") + ";".
