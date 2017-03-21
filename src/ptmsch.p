@@ -140,6 +140,7 @@ FOR EACH DB._file WHERE NOT DB._file._file-name BEGINS "_" AND
             TRIM(DB._field._col-label) "|"/* COLUMN-LABEL */
             TRIM(DB._field._help) "|" /* HELP */
             TRIM(DB._field._desc) "~"". /* DESCRIPTION */
+            /* TBD: Number of unique values */
          lAddFieldComma = TRUE.
       END. /* Loop array */
    END. /* Loop fields */
