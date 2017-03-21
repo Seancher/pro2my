@@ -12,7 +12,9 @@ DEFINE NEW SHARED STREAM MX.
 
 /* -------------------------- Settings -------------------------------------- */
 ASSIGN
-   cDatabaseStatDate = "2812017"
+   cDatabaseStatDate = STRING(DAY(TODAY)) + 
+                       STRING(MONTH(TODAY)) + 
+                       STRING(YEAR(TODAY)).
    iTransType = {&EXCL_EMPTY_FIELDS}.
 
 /* -------------------------- Main start ------------------------------------ */
