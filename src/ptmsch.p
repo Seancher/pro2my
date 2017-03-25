@@ -24,8 +24,6 @@ DEF VAR lIsArray           AS LOGICAL NO-UNDO.
 DEF VAR cTableName         AS CHAR FORMAT "x(60)" NO-UNDO.
 DEF VAR cFieldNameSfx      AS CHAR FORMAT "x(60)" NO-UNDO.
 DEF VAR iExtents           AS INTEGER NO-UNDO.
-DEF VAR lcUsedTablesFields AS LONGCHAR INIT ";" NO-UNDO.
-DEF VAR lcUsedTables       AS LONGCHAR INIT ";" NO-UNDO.
 DEF VAR cTextString        AS CHARACTER NO-UNDO.
 DEF VAR lAddFieldComma     AS LOGICAL NO-UNDO.
 DEF VAR lAddKeyFieldComma  AS LOGICAL NO-UNDO.
@@ -33,25 +31,49 @@ DEF VAR lAddPKeyFieldComma AS LOGICAL NO-UNDO.
 DEF VAR iFieldFormat       AS INTEGER NO-UNDO.
 DEF VAR cFieldFormat       AS CHARACTER NO-UNDO.
 
+DEFINE TEMP-TABLE ttTableField NO-UNDO
+   FIELD TableName AS CHARACTER
+   FIELD FieldName AS CHARACTER
+   FIELD isUsed    AS LOGICAL
+   FIELD NumUnique AS CHARACTER.
+
 /* ---------------------------- MAIN ---------------------------------------- */
 
-/* Fetch lists: used tables, used table-fields */
+/* Fetch lists of all tables, all fields and the number of unique values  */
+INPUT FROM VALUE("../rbs_db_analysis/out/database_stat_" + icDBName + "_" + ipDate + "_preprocessed.txt").
+DO WHILE TRUE ON ENDKEY UNDO, LEAVE:
+   IMPORT UNFORMATTED cTextString.
+   CREATE ttTableField.
+   ASSIGN 
+      ttTableField.TableName = ENTRY(2,cTextString,"|")
+      ttTableField.FieldName = ENTRY(3,cTextString,"|")
+      ttTableField.isUsed    = FALSE
+      ttTableField.NumUnique = ENTRY(4,cTextString,"|").
+END.
+INPUT CLOSE.
+
+/* Mark used fields */
 INPUT FROM VALUE("../rbs_db_analysis/out/used_tablefields_" + icDBName + "_" + ipDate + ".txt").
 DO WHILE TRUE ON ENDKEY UNDO, LEAVE:
    IMPORT UNFORMATTED cTextString.
-   lcUsedTables = lcUsedTables + ENTRY(1,cTextString,".") + ";".
-   lcUsedTablesFields = lcUsedTablesFields + cTextString + ";".
+   FIND FIRST ttTableField WHERE 
+      ttTableField.TableName = ENTRY(1,cTextString,".") AND
+      ttTableField.FieldName = ENTRY(2,cTextString,".") NO-ERROR.
+   IF AVAILABLE ttTableField
+   THEN ttTableField.isUsed = TRUE.
 END.
 INPUT CLOSE.
 
 /* Loop tables */
 FOR EACH DB._file WHERE NOT DB._file._file-name BEGINS "_" AND
-                            NOT DB._file._file-name BEGINS "Sys":
-                            
+                        NOT DB._file._file-name BEGINS "Sys":
+           
    /* Skip unused tables */
    IF (ipTransType EQ {&EXCL_EMPTY_TABLES} OR
       ipTransType EQ {&EXCL_EMPTY_FIELDS}) AND
-      INDEX(lcUsedTables, ";" + DB._file._file-name + ";") = 0
+      NOT CAN-FIND (FIRST ttTableField WHERE
+         ttTableField.TableName = DB._file._file-name AND
+         ttTableField.isUsed = TRUE)
    THEN NEXT.
    
    /* Create table */
@@ -76,10 +98,16 @@ FOR EACH DB._file WHERE NOT DB._file._file-name BEGINS "_" AND
          THEN cFieldNameSfx = "[" + STRING(iExtents - 1) + "]".
          ELSE cFieldNameSfx = "".
          
+         FIND FIRST ttTableField WHERE
+            ttTableField.TableName = DB._file._file-name AND
+            ttTableField.FieldName = DB._field._field-name + cFieldNameSfx NO-ERROR.
+            
          /* Skip unused and not index fields */
          IF ipTransType = {&EXCL_EMPTY_FIELDS} AND
-            INDEX(lcUsedTablesFields,
-            ";" + DB._file._file-name + "." + DB._field._field-name + cFieldNameSfx + ";") = 0 AND
+            CAN-FIND (FIRST ttTableField WHERE
+               ttTableField.TableName = DB._file._file-name AND
+               ttTableField.FieldName = DB._field._field-name + cFieldNameSfx AND
+               NOT ttTableField.isUsed) AND
             NOT CAN-FIND (FIRST DB._index-field WHERE RECID(DB._field) = DB._index-field._field-recid)
          THEN NEXT.
          
@@ -132,15 +160,23 @@ FOR EACH DB._file WHERE NOT DB._file._file-name BEGINS "_" AND
          IF DB._field._mandatory
          THEN PUT STREAM MX UNFORMATTED " NOT NULL".
       
+         /* Fetch the number of unique values */
+         FIND FIRST ttTableField WHERE 
+            ttTableField.TableName = DB._file._file-name AND
+            ttTableField.FieldName = DB._field._field-name + cFieldNameSfx NO-ERROR.
+            
+         IF NOT AVAILABLE ttTableField
+         THEN DISP icDBName DB._file._file-name DB._field._field-name cFieldNameSfx WITH 2 COL.
+                  
          /* Set a comment: TYPE, FORMAT, LABEL, COLUMN-LABEL, HELP, DESCRIPTION */
          PUT STREAM MX UNFORMATTED " COMMENT ~""
             TRIM(DB._field._data-type) "|" /* TYPE */
             TRIM(DB._field._format) "|" /* FORMAT */
+            TRIM(ttTableField.NumUnique) "|" /* # of Uniques */
             TRIM(DB._field._label) "|" /* LABEL */
             TRIM(DB._field._col-label) "|"/* COLUMN-LABEL */
             TRIM(DB._field._help) "|" /* HELP */
             TRIM(DB._field._desc) "~"". /* DESCRIPTION */
-            /* TBD: Number of unique values */
          lAddFieldComma = TRUE.
       END. /* Loop array */
    END. /* Loop fields */
