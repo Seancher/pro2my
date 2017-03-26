@@ -16,6 +16,9 @@ ASSIGN
                        STRING(MONTH(TODAY)) + 
                        STRING(YEAR(TODAY)).
    iTransType = {&EXCL_EMPTY_FIELDS}.
+   /* KEEP_ORIG_DATABASE
+      EXCL_EMPTY_TABLES
+      EXCL_EMPTY_FIELDS */
 
 /* -------------------------- Main start ------------------------------------ */
 OUTPUT STREAM MX TO VALUE("out/mysql_rbsall.sql").
