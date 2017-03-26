@@ -98,9 +98,11 @@ FOR EACH DB._file WHERE NOT DB._file._file-name BEGINS "_" AND
          THEN cFieldNameSfx = "[" + STRING(iExtents - 1) + "]".
          ELSE cFieldNameSfx = "".
          
-         FIND FIRST ttTableField WHERE
-            ttTableField.TableName = DB._file._file-name AND
-            ttTableField.FieldName = DB._field._field-name + cFieldNameSfx NO-ERROR.
+         /* Skip if a field is not used in production */
+         IF NOT CAN-FIND (FIRST ttTableField WHERE
+               ttTableField.TableName = DB._file._file-name AND
+               ttTableField.FieldName = DB._field._field-name + cFieldNameSfx)
+         THEN NEXT.
             
          /* Skip unused and not index fields */
          IF ipTransType = {&EXCL_EMPTY_FIELDS} AND
