@@ -164,9 +164,6 @@ FOR EACH DB._file WHERE NOT DB._file._file-name BEGINS "_" AND
          FIND FIRST ttTableField WHERE 
             ttTableField.TableName = DB._file._file-name AND
             ttTableField.FieldName = DB._field._field-name + cFieldNameSfx NO-ERROR.
-            
-         IF NOT AVAILABLE ttTableField
-         THEN DISP icDBName DB._file._file-name DB._field._field-name cFieldNameSfx WITH 2 COL.
                   
          /* Set a comment: TYPE, FORMAT, LABEL, COLUMN-LABEL, HELP, DESCRIPTION */
          PUT STREAM MX UNFORMATTED " COMMENT ~""
