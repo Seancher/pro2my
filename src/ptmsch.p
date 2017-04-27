@@ -13,16 +13,19 @@
 {src/const.i}
   
 /* -------------------------- Parameters ------------------------------------ */
-DEF INPUT PARAMETER ipTransType AS INTEGER NO-UNDO.
-DEF INPUT PARAMETER icDBName    AS CHAR FORMAT "x(30)" NO-UNDO.
-DEF INPUT PARAMETER ipDate      AS CHAR FORMAT "x(30)" NO-UNDO.
+DEF INPUT PARAMETER ipTransType    AS INTEGER NO-UNDO.
+DEF INPUT PARAMETER icDBName       AS CHAR NO-UNDO.
+DEF INPUT PARAMETER icMetadataDate AS CHAR NO-UNDO.
+DEF INPUT PARAMETER icStatdataDate AS CHAR NO-UNDO.
+
 /* --------------------------   Streams  ------------------------------------ */
 DEFINE SHARED STREAM MX.
 
 /* ---------------------- Temporary variables ------------------------------- */
 DEF VAR lIsArray           AS LOGICAL NO-UNDO.
-DEF VAR cTableName         AS CHAR FORMAT "x(60)" NO-UNDO.
-DEF VAR cFieldNameSfx      AS CHAR FORMAT "x(60)" NO-UNDO.
+DEF VAR cTable             AS CHAR NO-UNDO.
+DEF VAR cField             AS CHAR NO-UNDO.
+DEF VAR cFieldSfx          AS CHAR NO-UNDO.
 DEF VAR iExtents           AS INTEGER NO-UNDO.
 DEF VAR cTextString        AS CHARACTER NO-UNDO.
 DEF VAR lAddFieldComma     AS LOGICAL NO-UNDO.
@@ -35,12 +38,17 @@ DEFINE TEMP-TABLE ttTableField NO-UNDO
    FIELD TableName AS CHARACTER
    FIELD FieldName AS CHARACTER
    FIELD isUsed    AS LOGICAL
+   FIELD isInIndex AS LOGICAL
    FIELD NumUnique AS CHARACTER.
+   
+DEFINE TEMP-TABLE ttTableIndex
+   FIELD TableName AS CHARACTER
+   FIELD IndexName AS CHARACTER
+   FIELD isPrimary AS LOGICAL.
 
 /* ---------------------------- MAIN ---------------------------------------- */
-
 /* Fetch lists of all tables, all fields and the number of unique values  */
-INPUT FROM VALUE("../rbs_db_analysis/out/database_stat_" + icDBName + "_" + ipDate + "_preprocessed.txt").
+INPUT FROM VALUE("../rbs_db_analysis/out/database_stat_" + icDBName + "_" + icStatdataDate + "_preprocessed.txt").
 DO WHILE TRUE ON ENDKEY UNDO, LEAVE:
    IMPORT UNFORMATTED cTextString.
    CREATE ttTableField.
@@ -48,12 +56,13 @@ DO WHILE TRUE ON ENDKEY UNDO, LEAVE:
       ttTableField.TableName = ENTRY(2,cTextString,"|")
       ttTableField.FieldName = ENTRY(3,cTextString,"|")
       ttTableField.isUsed    = FALSE
+      ttTableField.isInIndex = FALSE
       ttTableField.NumUnique = ENTRY(4,cTextString,"|").
 END.
 INPUT CLOSE.
 
 /* Mark used fields */
-INPUT FROM VALUE("../rbs_db_analysis/out/used_tablefields_" + icDBName + "_" + ipDate + ".txt").
+INPUT FROM VALUE("../rbs_db_analysis/out/used_tablefields_" + icDBName + "_" + icStatdataDate + ".txt").
 DO WHILE TRUE ON ENDKEY UNDO, LEAVE:
    IMPORT UNFORMATTED cTextString.
    FIND FIRST ttTableField WHERE 
@@ -64,10 +73,34 @@ DO WHILE TRUE ON ENDKEY UNDO, LEAVE:
 END.
 INPUT CLOSE.
 
+/* Mark indexed fields */
+INPUT FROM VALUE("../rbs_db_analysis/out/all_tablefields_" + icDBName + "_" + icMetadataDate + ".txt").
+DO WHILE TRUE ON ENDKEY UNDO, LEAVE:
+   IMPORT UNFORMATTED cTextString.
+   FIND FIRST ttTableField WHERE 
+      ttTableField.TableName = ENTRY(1,cTextString,".") AND
+      ttTableField.FieldName = ENTRY(2,cTextString,".") AND 
+      LOGICAL (ENTRY(3,cTextString,".")) NO-ERROR.
+   IF AVAILABLE ttTableField
+   THEN ttTableField.isInIndex = TRUE.
+END.
+INPUT CLOSE.
+
+/* Fetch lists of all indexes */
+INPUT FROM VALUE("../rbs_db_analysis/out/all_tableindexes_" + icDBName + "_" + icMetadataDate + ".txt").
+DO WHILE TRUE ON ENDKEY UNDO, LEAVE:
+   IMPORT UNFORMATTED cTextString.
+   CREATE ttTableIndex.
+   ASSIGN ttTableIndex.TableName = ENTRY(1,cTextString,".")
+          ttTableIndex.IndexName = ENTRY(2,cTextString,".")
+          ttTableIndex.isPrimary = LOGICAL(ENTRY(3,cTextString,".")).
+END.
+INPUT CLOSE.
+
 /* Loop tables */
 FOR EACH DB._file WHERE NOT DB._file._file-name BEGINS "_" AND
                         NOT DB._file._file-name BEGINS "Sys":
-           
+
    /* Skip unused tables */
    IF (ipTransType EQ {&EXCL_EMPTY_TABLES} OR
       ipTransType EQ {&EXCL_EMPTY_FIELDS}) AND
@@ -77,9 +110,9 @@ FOR EACH DB._file WHERE NOT DB._file._file-name BEGINS "_" AND
    THEN NEXT.
    
    /* Create table */
-   cTableName = DB._file._file-name.
-   PUT STREAM MX UNFORMATTED "DROP TABLE IF EXISTS `" icDBName + "_" + cTableName "`;" SKIP.
-   PUT STREAM MX UNFORMATTED "CREATE TABLE `" icDBName + "_" + cTableName "`(" SKIP.
+   cTable = DB._file._file-name.
+   PUT STREAM MX UNFORMATTED "DROP TABLE IF EXISTS `" icDBName + "_" + cTable "`;" SKIP.
+   PUT STREAM MX UNFORMATTED "CREATE TABLE `" icDBName + "_" + cTable "`(" SKIP.
 
    /* Loop fields */
    lAddFieldComma = FALSE.
@@ -95,28 +128,29 @@ FOR EACH DB._file WHERE NOT DB._file._file-name BEGINS "_" AND
          iExtents = iExtents + 1.
          
          IF lIsArray
-         THEN cFieldNameSfx = "[" + STRING(iExtents - 1) + "]".
-         ELSE cFieldNameSfx = "".
+         THEN cFieldSfx = "[" + STRING(iExtents - 1) + "]".
+         ELSE cFieldSfx = "".
+         cField = DB._field._field-name + cFieldSfx.
          
          /* Skip if a field is not used in production */
          IF NOT CAN-FIND (FIRST ttTableField WHERE
-               ttTableField.TableName = DB._file._file-name AND
-               ttTableField.FieldName = DB._field._field-name + cFieldNameSfx)
+               ttTableField.TableName = cTable AND
+               ttTableField.FieldName = cField)
          THEN NEXT.
             
          /* Skip unused and not index fields */
          IF ipTransType = {&EXCL_EMPTY_FIELDS} AND
             CAN-FIND (FIRST ttTableField WHERE
-               ttTableField.TableName = DB._file._file-name AND
-               ttTableField.FieldName = DB._field._field-name + cFieldNameSfx AND
-               NOT ttTableField.isUsed) AND
-            NOT CAN-FIND (FIRST DB._index-field WHERE RECID(DB._field) = DB._index-field._field-recid)
+               ttTableField.TableName = cTable AND
+               ttTableField.FieldName = cField AND
+               NOT ttTableField.isUsed AND
+               NOT ttTableField.isInIndex)
          THEN NEXT.
          
          /* Add field comma (if needed) & field name */
          IF lAddFieldComma
          THEN PUT STREAM MX UNFORMATTED "," SKIP.
-         PUT STREAM MX UNFORMATTED "~t`" DB._field._field-name cFieldNameSfx "`~t".
+         PUT STREAM MX UNFORMATTED "~t`" cField "`~t".
 
          /* Add field format */
          cFieldFormat = REPLACE(DB._field._format,"X(","").
@@ -164,8 +198,8 @@ FOR EACH DB._file WHERE NOT DB._file._file-name BEGINS "_" AND
       
          /* Fetch the number of unique values */
          FIND FIRST ttTableField WHERE 
-            ttTableField.TableName = DB._file._file-name AND
-            ttTableField.FieldName = DB._field._field-name + cFieldNameSfx NO-ERROR.
+            ttTableField.TableName = cTable AND
+            ttTableField.FieldName = cField NO-ERROR.
                   
          /* Set a comment: TYPE, FORMAT, LABEL, COLUMN-LABEL, HELP, DESCRIPTION */
          PUT STREAM MX UNFORMATTED " COMMENT ~""
@@ -185,11 +219,23 @@ FOR EACH DB._file WHERE NOT DB._file._file-name BEGINS "_" AND
    FOR EACH DB._index OF DB._file:
       IF RECID(DB._index) = DB._file._prime-index
       THEN DO:
+         /* Skip if the primary index is not used in production */
+         IF NOT CAN-FIND (FIRST ttTableIndex WHERE TableName = cTable AND
+               IndexName = DB._index._index-name AND isPrimary)
+         THEN NEXT.
+                  
          PUT STREAM MX UNFORMATTED "," SKIP "~tPRIMARY KEY~t(".
-         /* Loop primary index fields */
+         
+         /* Loop indexed fields */
          FOR EACH DB._index-field OF DB._index:
             FIND DB._field WHERE RECID(DB._field) = DB._index-field._field-recid.
 
+            /* Skip if a field is not used in production */
+            IF NOT CAN-FIND (FIRST ttTableField WHERE
+                  ttTableField.TableName = DB._file._file-name AND
+                  ttTableField.FieldName = DB._field._field-name)
+            THEN NEXT.
+            
             /* Add primary key field comma (if needed) & field name */
             IF lAddPKeyFieldComma THEN PUT STREAM MX UNFORMATTED ",".
             lAddPKeyFieldComma = TRUE.
@@ -200,10 +246,12 @@ FOR EACH DB._file WHERE NOT DB._file._file-name BEGINS "_" AND
    END. /* Loop primary indexes */
 
    /* Loop indixes */
-   FOR EACH DB._index OF DB._file
-      WHERE CAN-FIND (FIRST DB._index-field OF DB._index)
-      BREAK BY DB._index._index-name:
-      
+   FOR EACH DB._index OF DB._file BREAK BY DB._index._index-name:
+      /* Skip if the index is not used in production */
+      IF NOT CAN-FIND (FIRST ttTableIndex WHERE TableName = cTable AND
+            IndexName = DB._index._index-name AND NOT isPrimary)
+      THEN NEXT.         
+               
       PUT STREAM MX UNFORMATTED "," SKIP.
       
       /* Make a note of the original primary index */
@@ -213,10 +261,16 @@ FOR EACH DB._file WHERE NOT DB._file._file-name BEGINS "_" AND
       PUT STREAM MX UNFORMATTED "~tKEY~t`" DB._index._index-name "` (" SKIP.
       lAddKeyFieldComma = FALSE.
       
-      /* Loop index fields */
+      /* Loop indexed fields */
       FOR EACH DB._index-field OF DB._index:
          FIND DB._field WHERE RECID(DB._field) = DB._index-field._field-recid.
-
+         
+         /* Skip if a field is not used in production */
+         IF NOT CAN-FIND (FIRST ttTableField WHERE
+               ttTableField.TableName = DB._file._file-name AND
+               ttTableField.FieldName = DB._field._field-name)
+         THEN NEXT.
+         
          /* Add field comma (if needed) & field name */
          IF lAddKeyFieldComma THEN PUT STREAM MX UNFORMATTED "," SKIP.
          lAddKeyFieldComma = TRUE.
