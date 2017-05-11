@@ -174,6 +174,7 @@ FOR EACH DB._file WHERE NOT DB._file._file-name BEGINS "_" AND
             WHEN "CLOB" THEN PUT STREAM MX UNFORMATTED "LONGCHAR".
             WHEN "RAW" THEN PUT STREAM MX UNFORMATTED "INT". /* Maybe there is a better mapping solution */
             WHEN "RECID" THEN PUT STREAM MX UNFORMATTED "INT". /* Maybe there is a better mapping solution */
+            WHEN "INT64" THEN PUT STREAM MX UNFORMATTED "INT". /* Maybe there is a better mapping solution */
             OTHERWISE DO:
                DISP "Warning writting an unparsed data type". PAUSE.
                PUT STREAM MX UNFORMATTED SKIP "## Warning - writing an unparsed data type".
