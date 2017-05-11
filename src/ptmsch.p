@@ -170,6 +170,10 @@ FOR EACH DB._file WHERE NOT DB._file._file-name BEGINS "_" AND
             WHEN "DATE" THEN PUT STREAM MX UNFORMATTED "DATE".
             WHEN "LOGICAL" THEN PUT STREAM MX UNFORMATTED "TINYINT(1)".
             WHEN "DATETIME-TZ" THEN PUT STREAM MX UNFORMATTED "DATETIME".
+            WHEN "BLOB" THEN PUT STREAM MX UNFORMATTED "BLOB".
+            WHEN "CLOB" THEN PUT STREAM MX UNFORMATTED "LONGCHAR".
+            WHEN "RAW" THEN PUT STREAM MX UNFORMATTED "INT". /* Maybe there is a better mapping solution */
+            WHEN "RECID" THEN PUT STREAM MX UNFORMATTED "INT". /* Maybe there is a better mapping solution */
             OTHERWISE DO:
                DISP "Warning writting an unparsed data type". PAUSE.
                PUT STREAM MX UNFORMATTED SKIP "## Warning - writing an unparsed data type".
