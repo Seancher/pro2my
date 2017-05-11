@@ -213,8 +213,8 @@ FOR EACH DB._file WHERE NOT DB._file._file-name BEGINS "_" AND
             TRIM(ttTableField.NumUnique) "|" /* # of Uniques */
             TRIM(DB._field._label) "|" /* LABEL */
             TRIM(DB._field._col-label) "|"/* COLUMN-LABEL */
-            REPLACE(TRIM(DB._field._help),"""","") "|" /* HELP */
-            REPLACE(TRIM(DB._field._desc),"""","") "~"". /* DESCRIPTION */
+            REPLACE(TRIM(DB._field._help),"""","""""") "|" /* HELP */
+            REPLACE(TRIM(DB._field._desc),"""","""""") "~"". /* DESCRIPTION */
          lAddFieldComma = TRUE.
       END. /* Loop array */
    END. /* Loop fields */
