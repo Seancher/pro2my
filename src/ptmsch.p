@@ -162,8 +162,12 @@ FOR EACH DB._file WHERE NOT DB._file._file-name BEGINS "_" AND
          THEN iFieldFormat = 0.
          
          CASE DB._field._data-type:
-            WHEN "CHARACTER" THEN PUT STREAM MX UNFORMATTED "CHAR("
-            STRING(iFieldFormat) ")".
+            WHEN "CHARACTER" THEN DO:
+                  PUT STREAM MX UNFORMATTED "CHAR(".
+                  IF iFieldFormat > 255
+                  THEN PUT STREAM MX UNFORMATTED STRING(255) ")".
+                  ELSE PUT STREAM MX UNFORMATTED STRING(iFieldFormat) ")".
+               END.
             WHEN "INTEGER" THEN PUT STREAM MX UNFORMATTED "INT".
             WHEN "DATETIME" THEN PUT STREAM MX UNFORMATTED "DATETIME".
             WHEN "DECIMAL" THEN PUT STREAM MX UNFORMATTED "DECIMAL".
@@ -171,7 +175,7 @@ FOR EACH DB._file WHERE NOT DB._file._file-name BEGINS "_" AND
             WHEN "LOGICAL" THEN PUT STREAM MX UNFORMATTED "TINYINT(1)".
             WHEN "DATETIME-TZ" THEN PUT STREAM MX UNFORMATTED "DATETIME".
             WHEN "BLOB" THEN PUT STREAM MX UNFORMATTED "BLOB".
-            WHEN "CLOB" THEN PUT STREAM MX UNFORMATTED "LONGCHAR".
+            WHEN "CLOB" THEN PUT STREAM MX UNFORMATTED "CHAR".
             WHEN "RAW" THEN PUT STREAM MX UNFORMATTED "INT". /* Maybe there is a better mapping solution */
             WHEN "RECID" THEN PUT STREAM MX UNFORMATTED "INT". /* Maybe there is a better mapping solution */
             WHEN "INT64" THEN PUT STREAM MX UNFORMATTED "INT". /* Maybe there is a better mapping solution */
@@ -192,6 +196,7 @@ FOR EACH DB._file WHERE NOT DB._file._file-name BEGINS "_" AND
                WHEN "LOGICAL" THEN PUT STREAM MX UNFORMATTED
                   " DEFAULT ~"" STRING(INTEGER(LOGICAL(DB._field._initial))) "~"".
                WHEN "DATE" THEN .
+               WHEN "DECIMAL" THEN .
                OTHERWISE PUT STREAM MX UNFORMATTED
                   " DEFAULT ~"" TRIM(DB._field._initial) "~"".
             END CASE.
@@ -289,7 +294,8 @@ FOR EACH DB._file WHERE NOT DB._file._file-name BEGINS "_" AND
    PUT STREAM MX UNFORMATTED ")" SKIP.
    
    /* Table comment */
-   PUT STREAM MX UNFORMATTED "~tCOMMENT = ~"" TRIM(DB._file._desc) "~";" SKIP.
+   PUT STREAM MX UNFORMATTED "~tCOMMENT = ~""
+      REPLACE(TRIM(DB._file._desc),"""","""""") "~";" SKIP.
 END. /* Loop tables */
 
 /* ------------------------------- THE END ----------------------------- */
