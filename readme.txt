@@ -1,10 +1,12 @@
+0.
+secherno@vega>> cd ~/rbs_doc/pro2my/
+secherno@vega>> export TERM=xterm
+
 1. Create MySQL script
-cd pro2my
-mpro -pf /apps/deployment/rbs/db/progress/store/all.pf
+mpro -pf /apps/deployment/db/progress/store/all.pf
 run main_pro2my.p(<TransType>,<MetadataCreationDateDDMMYYYY>,<StatdataCreationDateDDMMYYYY>)
 example: run main_pro2my.p(3,"21042017","21042017")
 output: mysql_<TransType>_<CreationDateDDMMYYYY>.txt
-
 
 1. First parameter - <TransType> = {1,2,3}
    {1} - KEEP_ORIG_DATABASE
