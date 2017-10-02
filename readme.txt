@@ -3,7 +3,7 @@ secherno@vega>> cd ~/rbs_doc/pro2my/
 secherno@vega>> export TERM=xterm
 
 1. Create MySQL script
-mpro -pf /apps/deployment/db/progress/store/all.pf
+secherno@vega>> /opt/dlc/bin/mpro -pf /apps/deployment/db/progress/store/all.pf
 run main_pro2my.p(<TransType>,<MetadataCreationDateDDMMYYYY>,<StatdataCreationDateDDMMYYYY>)
 example: run main_pro2my.p(3,"21042017","21042017")
 output: mysql_<TransType>_<CreationDateDDMMYYYY>.txt
